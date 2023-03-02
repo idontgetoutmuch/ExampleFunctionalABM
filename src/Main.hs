@@ -15,6 +15,10 @@ import qualified Graphics.Gloss as GLO
 import qualified Graphics.Gloss.Interface.IO.Animate as GLOAnim
 import           Data.MonadicStreamFunction.InternalCore
 
+import           Graphics.Gloss.Export
+import           Data.List (unfoldr)
+
+
 data SIRState = Susceptible | Infected | Recovered deriving (Show, Eq)
 
 type Disc2dCoord  = (Int, Int)
@@ -25,7 +29,7 @@ type SIRAgent g   = SF (SIRMonad g) SIREnv SIRState
 
 type SimSF g = SF (SIRMonad g) () SIREnv
 
-data SimCtx g = SimCtx 
+data SimCtx g = SimCtx
   { simSf    :: !(SimSF g)
   , simEnv   :: !SIREnv
   , simRng   :: g
@@ -48,6 +52,12 @@ agentGridSize = (51, 51)
 winSize :: (Int, Int)
 winSize = (800, 800)
 
+(cx, cy)   = agentGridSize
+(wx, wy)   = winSize
+
+cellWidth  = (fromIntegral wx / fromIntegral cx) :: Double
+cellHeight = (fromIntegral wy / fromIntegral cy) :: Double
+
 winTitle :: String
 winTitle = "Agent-Based SIR on 2D Grid"
 
@@ -55,11 +65,11 @@ main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
 
-  let visualise = True
+  let visualise = False
       t         = 100
       dt        = 0.1
       seed      = 123 -- 123 -- 42 leads to recovery without any infection
-      
+
       g         = mkStdGen seed
       (as, env) = initAgentsEnv agentGridSize
       sfs       = map (\(coord, a) -> (sirAgent coord a, coord)) as
@@ -69,9 +79,50 @@ main = do
   if visualise
     then visualiseSimulation dt ctx
     else do
-      --let ret = runSimulationUntil t dt ctx
-      --writeAggregatesToFile "SIR_DUNAI.m" ret 
-      writeSimulationUntil t dt ctx "SIR_DUNAI_dt001.m" 
+      let ts = [0.0, dt .. t]
+      let ctxs = evaluateCtxs (length ts) dt ctx
+      exportPicturesToGif 10 LoopingForever (800, 800) GLO.white "SIR.gif" ((ctxToPic . (animation ctxs dt)) . uncurry encodeFloat . decodeFloat) (map (uncurry encodeFloat . decodeFloat) ts)
+      writeSimulationUntil t dt ctx "SIR_DUNAI_dt001.m"
+
+ctxToPic :: RandomGen g
+         => SimCtx g
+         -> GLO.Picture
+ctxToPic ctx = GLO.Pictures $ aps ++ [timeStepTxt]
+  where
+      env = simEnv ctx
+      as  = assocs env
+      aps = map renderAgent as
+      t   = simTime ctx
+
+      (tcx, tcy)  = transformToWindow (-7, 10)
+      timeTxt     = printf "%0.1f" t
+      timeStepTxt = GLO.color GLO.black $ GLO.translate tcx tcy $ GLO.scale 0.5 0.5 $ GLO.Text timeTxt
+
+transformToWindow :: Disc2dCoord -> (Float, Float)
+transformToWindow (x, y) = (x', y')
+  where
+    rw = cellWidth
+    rh = cellHeight
+
+    halfXSize = fromRational (toRational wx / 2.0)
+    halfYSize = fromRational (toRational wy / 2.0)
+
+    x' = fromRational (toRational (fromIntegral x * rw)) - halfXSize
+    y' = fromRational (toRational (fromIntegral y * rh)) - halfYSize
+
+renderAgent :: (Disc2dCoord, SIRState) -> GLO.Picture
+renderAgent (coord, Susceptible)
+    = GLO.color (GLO.makeColor 0.0 0.0 0.7 1.0) $ GLO.translate x y $ GLO.Circle (realToFrac cellWidth / 2)
+  where
+    (x, y) = transformToWindow coord
+renderAgent (coord, Infected)
+    = GLO.color (GLO.makeColor 0.7 0.0 0.0 1.0) $ GLO.translate x y $ GLO.ThickCircle 0 (realToFrac cellWidth)
+  where
+    (x, y) = transformToWindow coord
+renderAgent (coord, Recovered)
+    = GLO.color (GLO.makeColor 0.0 0.70 0.0 1.0) $ GLO.translate x y $ GLO.ThickCircle 0 (realToFrac cellWidth)
+  where
+    (x, y) = transformToWindow coord
 
 runSimulationUntil :: RandomGen g
                    => Time
@@ -85,7 +136,7 @@ runSimulationUntil tMax dt ctx0 = runSimulationAux 0 ctx0 []
                       -> SimCtx g
                       -> [(Double, Double, Double)]
                       -> [(Double, Double, Double)]
-    runSimulationAux t ctx acc 
+    runSimulationAux t ctx acc
         | t >= tMax = acc
         | otherwise = runSimulationAux t' ctx' acc'
       where
@@ -108,7 +159,7 @@ writeSimulationUntil tMax dt ctx0 fileName = do
     writeSimulationUntilAux 0 ctx0 fileHdl
     hPutStrLn fileHdl "];"
 
-    writeMatlabPlot fileHdl dt 
+    writeMatlabPlot fileHdl dt
 
     hClose fileHdl
   where
@@ -117,19 +168,19 @@ writeSimulationUntil tMax dt ctx0 fileName = do
                             -> SimCtx g
                             -> Handle
                             -> IO ()
-    writeSimulationUntilAux t ctx fileHdl 
+    writeSimulationUntilAux t ctx fileHdl
         | t >= tMax = return ()
         | otherwise = do
           let env  = simEnv ctx
               aggr = aggregateStates $ elems env
-  
+
               t'   = t + dt
               ctx' = runStepCtx dt ctx
 
           hPutStrLn fileHdl (sirAggregateToString aggr)
 
           writeSimulationUntilAux t' ctx' fileHdl
-     
+
 visualiseSimulation :: RandomGen g
                     => DTime
                     -> SimCtx g
@@ -144,62 +195,17 @@ visualiseSimulation dt ctx0 = do
       (const $ return ())
 
   where
-    (cx, cy)   = agentGridSize
-    (wx, wy)   = winSize
-    cellWidth  = (fromIntegral wx / fromIntegral cx) :: Double
-    cellHeight = (fromIntegral wy / fromIntegral cy) :: Double
-
     nextFrame :: RandomGen g
               => IORef (SimCtx g)
-              -> Float 
+              -> Float
               -> IO GLO.Picture
     nextFrame ctxRef _ = do
       ctx <- readIORef ctxRef
-      
+
       let ctx' = runStepCtx dt ctx
       writeIORef ctxRef ctx'
 
       return $ ctxToPic ctx
-
-    ctxToPic :: RandomGen g
-             => SimCtx g 
-             -> GLO.Picture
-    ctxToPic ctx = GLO.Pictures $ aps ++ [timeStepTxt]
-      where
-          env = simEnv ctx
-          as  = assocs env
-          aps = map renderAgent as
-          t   = simTime ctx
-
-          (tcx, tcy)  = transformToWindow (-7, 10)
-          timeTxt     = printf "%0.1f" t
-          timeStepTxt = GLO.color GLO.black $ GLO.translate tcx tcy $ GLO.scale 0.5 0.5 $ GLO.Text timeTxt
-
-    renderAgent :: (Disc2dCoord, SIRState) -> GLO.Picture
-    renderAgent (coord, Susceptible) 
-        = GLO.color (GLO.makeColor 0.0 0.0 0.7 1.0) $ GLO.translate x y $ GLO.Circle (realToFrac cellWidth / 2)
-      where
-        (x, y) = transformToWindow coord
-    renderAgent (coord, Infected)    
-        = GLO.color (GLO.makeColor 0.7 0.0 0.0 1.0) $ GLO.translate x y $ GLO.ThickCircle 0 (realToFrac cellWidth)
-      where
-        (x, y) = transformToWindow coord
-    renderAgent (coord, Recovered)   
-        = GLO.color (GLO.makeColor 0.0 0.70 0.0 1.0) $ GLO.translate x y $ GLO.ThickCircle 0 (realToFrac cellWidth)
-      where
-        (x, y) = transformToWindow coord
-
-    transformToWindow :: Disc2dCoord -> (Float, Float)
-    transformToWindow (x, y) = (x', y')
-      where
-        rw = cellWidth
-        rh = cellHeight
-
-        halfXSize = fromRational (toRational wx / 2.0)
-        halfYSize = fromRational (toRational wy / 2.0)
-
-        x' = fromRational (toRational (fromIntegral x * rw)) - halfXSize
-        y' = fromRational (toRational (fromIntegral y * rh)) - halfYSize
 
 mkSimCtx :: RandomGen g
          => SimSF g
@@ -215,6 +221,15 @@ mkSimCtx sf env g steps t = SimCtx {
   , simSteps = steps
   , simTime  = t
   }
+
+evaluateCtxs :: RandomGen g => Int -> DTime -> SimCtx g -> [SimCtx g]
+evaluateCtxs n dt initCtx = unfoldr g (initCtx, n)
+  where
+    g (c, m) | m < 0 = Nothing
+                   | otherwise = Just (c, (runStepCtx dt c, m - 1))
+
+animation :: RandomGen g => [SimCtx g] -> DTime -> Time -> SimCtx g
+animation ctxs dt t = ctxs !! (floor (t / dt))
 
 runStepCtx :: RandomGen g
            => DTime
@@ -238,11 +253,11 @@ initAgentsEnv (xd, yd) = (as, e)
   where
     xCenter = floor $ fromIntegral xd * (0.5 :: Double)
     yCenter = floor $ fromIntegral yd * (0.5 :: Double)
-    
-    sus = [ ((x, y), Susceptible) | x <- [0..xd-1], 
+
+    sus = [ ((x, y), Susceptible) | x <- [0..xd-1],
                                     y <- [0..yd-1],
                                     x /= xCenter ||
-                                    y /= yCenter ] 
+                                    y /= yCenter ]
     inf = ((xCenter, yCenter), Infected)
     as = inf : sus
 
@@ -253,7 +268,7 @@ simulationStep :: RandomGen g
                -> SIREnv
                -> SF (SIRMonad g) () SIREnv
 simulationStep sfsCoords env = MSF $ \_ -> do
-    let (sfs, coords) = unzip sfsCoords 
+    let (sfs, coords) = unzip sfsCoords
 
     -- run all agents sequentially but keep the environment
     -- read-only: it is shared as input with all agents
@@ -263,7 +278,7 @@ simulationStep sfsCoords env = MSF $ \_ -> do
     -- construct new environment from all agent outputs for next step
     let (as, sfs') = unzip ret
         env' = foldr (\(coord, a) envAcc -> updateCell coord a envAcc) env (zip coords as)
-        
+
         sfsCoords' = zip sfs' coords
         cont       = simulationStep sfsCoords' env'
     return (env', cont)
@@ -278,18 +293,18 @@ sirAgent _     Recovered   = recoveredAgent
 
 susceptibleAgent :: RandomGen g => Disc2dCoord -> SIRAgent g
 susceptibleAgent _coord
-    = switch 
+    = switch
       -- delay the switching by 1 step, otherwise could
       -- make the transition from Susceptible to Recovered within time-step
       (susceptible >>> iPre (Susceptible, NoEvent))
       (const infectedAgent)
   where
-    susceptible :: RandomGen g 
+    susceptible :: RandomGen g
                 => SF (SIRMonad g) SIREnv (SIRState, Event ())
     susceptible = proc env -> do
       makeContact <- occasionally (1 / contactRate) () -< ()
 
-      if not $ isEvent makeContact 
+      if not $ isEvent makeContact
         then returnA -< (Susceptible, NoEvent)
         else (do
           --let ns = neighbours env coord agentGridSize moore
@@ -298,7 +313,7 @@ susceptibleAgent _coord
           case s of
             Infected -> do
               infected <- arrM (const (lift $ randomBoolM infectivity)) -< ()
-              if infected 
+              if infected
                 then returnA -< (Infected, Event ())
                 else returnA -< (Susceptible, NoEvent)
             _       -> returnA -< (Susceptible, NoEvent))
@@ -319,7 +334,7 @@ infectedAgent
         else returnA -< (Infected, NoEvent)
 
 recoveredAgent :: RandomGen g => SIRAgent g
-recoveredAgent = arr (const Recovered) 
+recoveredAgent = arr (const Recovered)
 
 drawRandomElemS :: MonadRandom m => SF m [a] a
 drawRandomElemS = proc as -> do
@@ -332,16 +347,16 @@ drawRandomElemS = proc as -> do
 randomBoolM :: RandomGen g => Double -> Rand g Bool
 randomBoolM p = getRandomR (0, 1) >>= (\r -> return $ r <= p)
 
-neighbours :: SIREnv 
-           -> Disc2dCoord 
+neighbours :: SIREnv
            -> Disc2dCoord
-           -> [Disc2dCoord] 
+           -> Disc2dCoord
+           -> [Disc2dCoord]
            -> [SIRState]
 neighbours e (x, y) (dx, dy) n = map (e !) nCoords'
   where
     nCoords  = map (\(x', y') -> (x + x', y + y')) n
-    nCoords' = filter (\(nx, ny) -> nx >= 0 && 
-                                    ny >= 0 && 
+    nCoords' = filter (\(nx, ny) -> nx >= 0 &&
+                                    ny >= 0 &&
                                     nx <= (dx - 1) &&
                                     ny <= (dy - 1)) nCoords
 allNeighbours :: SIREnv -> [SIRState]
@@ -372,9 +387,9 @@ bottomDelta       = ( 0,  1)
 bottomRightDelta :: Disc2dCoord
 bottomRightDelta  = ( 1,  1)
 
-writeAggregatesToFile :: String 
+writeAggregatesToFile :: String
                       -> DTime
-                      -> [(Double, Double, Double)] 
+                      -> [(Double, Double, Double)]
                       -> IO ()
 writeAggregatesToFile fileName dt dynamics = do
   fileHdl <- openFile fileName WriteMode
@@ -386,7 +401,7 @@ writeAggregatesToFile fileName dt dynamics = do
 
   hClose fileHdl
 
-writeMatlabPlot :: Handle 
+writeMatlabPlot :: Handle
                 -> DTime
                 -> IO ()
 writeMatlabPlot fileHdl dt = do
@@ -411,7 +426,7 @@ writeMatlabPlot fileHdl dt = do
   hPutStrLn fileHdl "plot (indices, recoveredRatio.', 'color', 'green', 'linewidth', 2);"
 
   hPutStrLn fileHdl "set(gca,'YTick',0:0.05:1.0);"
-  
+
   hPutStrLn fileHdl "xlabel ('Time');"
   hPutStrLn fileHdl "ylabel ('Population Ratio');"
   hPutStrLn fileHdl "legend('Susceptible','Infected', 'Recovered');"
