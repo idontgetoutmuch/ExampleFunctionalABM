@@ -18,6 +18,9 @@ import           Data.MonadicStreamFunction.InternalCore
 import           Graphics.Gloss.Export
 import           Data.List (unfoldr)
 
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Csv             as Csv
+
 
 data SIRState = Susceptible | Infected | Recovered deriving (Show, Eq)
 
@@ -52,11 +55,13 @@ agentGridSize = (51, 51)
 winSize :: (Int, Int)
 winSize = (800, 800)
 
+cx, cy, wx, wy :: Int
 (cx, cy)   = agentGridSize
 (wx, wy)   = winSize
 
-cellWidth  = (fromIntegral wx / fromIntegral cx) :: Double
-cellHeight = (fromIntegral wy / fromIntegral cy) :: Double
+cellWidth, cellHeight :: Double
+cellWidth  = (fromIntegral wx / fromIntegral cx)
+cellHeight = (fromIntegral wy / fromIntegral cy)
 
 winTitle :: String
 winTitle = "Agent-Based SIR on 2D Grid"
@@ -68,7 +73,7 @@ main = do
   let visualise = False
       t         = 100
       dt        = 0.1
-      seed      = 123 -- 123 -- 42 leads to recovery without any infection
+      seed      = 123 -- 42 leads to recovery without any infection
 
       g         = mkStdGen seed
       (as, env) = initAgentsEnv agentGridSize
@@ -82,7 +87,7 @@ main = do
       let ts = [0.0, dt .. t]
       let ctxs = evaluateCtxs (length ts) dt ctx
       exportPicturesToGif 10 LoopingForever (800, 800) GLO.white "SIR.gif" ((ctxToPic . (animation ctxs dt)) . uncurry encodeFloat . decodeFloat) (map (uncurry encodeFloat . decodeFloat) ts)
-      writeSimulationUntil t dt ctx "SIR_DUNAI_dt001.m"
+      writeSimulationUntil t dt ctx "SIR_DUNAI_dt001.csv"
 
 ctxToPic :: RandomGen g
          => SimCtx g
@@ -147,6 +152,9 @@ runSimulationUntil tMax dt ctx0 = runSimulationAux 0 ctx0 []
         ctx' = runStepCtx dt ctx
         acc' = aggr : acc
 
+appendLine :: Csv.ToRecord a => Handle -> a -> IO ()
+appendLine hndl line = LBS.hPut hndl (Csv.encode [Csv.toRecord line])
+
 writeSimulationUntil :: RandomGen g
                      => Time
                      -> DTime
@@ -155,12 +163,8 @@ writeSimulationUntil :: RandomGen g
                      -> IO ()
 writeSimulationUntil tMax dt ctx0 fileName = do
     fileHdl <- openFile fileName WriteMode
-    hPutStrLn fileHdl "dynamics = ["
+    appendLine fileHdl ("Susceptible", "Infected", "Recovered")
     writeSimulationUntilAux 0 ctx0 fileHdl
-    hPutStrLn fileHdl "];"
-
-    writeMatlabPlot fileHdl dt
-
     hClose fileHdl
   where
     writeSimulationUntilAux :: RandomGen g
@@ -177,7 +181,7 @@ writeSimulationUntil tMax dt ctx0 fileName = do
               t'   = t + dt
               ctx' = runStepCtx dt ctx
 
-          hPutStrLn fileHdl (sirAggregateToString aggr)
+          appendLine fileHdl aggr
 
           writeSimulationUntilAux t' ctx' fileHdl
 
@@ -386,57 +390,6 @@ bottomDelta :: Disc2dCoord
 bottomDelta       = ( 0,  1)
 bottomRightDelta :: Disc2dCoord
 bottomRightDelta  = ( 1,  1)
-
-writeAggregatesToFile :: String
-                      -> DTime
-                      -> [(Double, Double, Double)]
-                      -> IO ()
-writeAggregatesToFile fileName dt dynamics = do
-  fileHdl <- openFile fileName WriteMode
-  hPutStrLn fileHdl "dynamics = ["
-  mapM_ (hPutStrLn fileHdl . sirAggregateToString) dynamics
-  hPutStrLn fileHdl "];"
-
-  writeMatlabPlot fileHdl dt
-
-  hClose fileHdl
-
-writeMatlabPlot :: Handle
-                -> DTime
-                -> IO ()
-writeMatlabPlot fileHdl dt = do
-  hPutStrLn fileHdl "susceptible = dynamics (:, 1);"
-  hPutStrLn fileHdl "infected = dynamics (:, 2);"
-  hPutStrLn fileHdl "recovered = dynamics (:, 3);"
-  hPutStrLn fileHdl "totalPopulation = susceptible(1) + infected(1) + recovered(1);"
-
-  hPutStrLn fileHdl "susceptibleRatio = susceptible ./ totalPopulation;"
-  hPutStrLn fileHdl "infectedRatio = infected ./ totalPopulation;"
-  hPutStrLn fileHdl "recoveredRatio = recovered ./ totalPopulation;"
-
-  hPutStrLn fileHdl "steps = length (susceptible);"
-  hPutStrLn fileHdl "indices = 0 : steps - 1;"
-  hPutStrLn fileHdl $ "indices = indices ./ " ++ show (1 / dt) ++ ";"
-
-  hPutStrLn fileHdl "figure"
-  hPutStrLn fileHdl "plot (indices, susceptibleRatio.', 'color', 'blue', 'linewidth', 2);"
-  hPutStrLn fileHdl "hold on"
-  hPutStrLn fileHdl "plot (indices, infectedRatio.', 'color', 'red', 'linewidth', 2);"
-  hPutStrLn fileHdl "hold on"
-  hPutStrLn fileHdl "plot (indices, recoveredRatio.', 'color', 'green', 'linewidth', 2);"
-
-  hPutStrLn fileHdl "set(gca,'YTick',0:0.05:1.0);"
-
-  hPutStrLn fileHdl "xlabel ('Time');"
-  hPutStrLn fileHdl "ylabel ('Population Ratio');"
-  hPutStrLn fileHdl "legend('Susceptible','Infected', 'Recovered');"
-
-sirAggregateToString :: (Double, Double, Double) -> String
-sirAggregateToString (susceptibleCount, infectedCount, recoveredCount) =
-  printf "%f" susceptibleCount
-  ++ "," ++ printf "%f" infectedCount
-  ++ "," ++ printf "%f" recoveredCount
-  ++ ";"
 
 aggregateStates :: [SIRState] -> (Double, Double, Double)
 aggregateStates as = (susceptibleCount, infectedCount, recoveredCount)
