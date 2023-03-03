@@ -34,7 +34,7 @@ let
   pkgs = nixpkgs;
 
   haskellDeps = ps: with ps; [
-    array base bearriver Chart containers diagrams dunai gloss
+    array base bearriver cassava Chart containers diagrams dunai gloss
     MonadRandom mtl diagrams diagrams-cairo hvega ihaskell-hvega
     plots
     ihaskell-juicypixels
@@ -42,6 +42,7 @@ let
     ihaskell-diagrams
     vector
     gloss-export
+    bytestring
   ];
 
 in
