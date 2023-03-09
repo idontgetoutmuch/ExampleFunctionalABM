@@ -44,7 +44,7 @@ contactRate :: Double
 contactRate = 5.0
 
 infectivity :: Double
-infectivity = 0.05
+infectivity = 0.10
 
 illnessDuration :: Double
 illnessDuration = 15.0
@@ -70,7 +70,7 @@ main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
 
-  let visualise = False
+  let visualise = True
       t         = 100
       dt        = 0.1
       seed      = 123 -- 42 leads to recovery without any infection
@@ -296,7 +296,7 @@ sirAgent _     Infected    = infectedAgent
 sirAgent _     Recovered   = recoveredAgent
 
 susceptibleAgent :: RandomGen g => Disc2dCoord -> SIRAgent g
-susceptibleAgent _coord
+susceptibleAgent coord
     = switch
       -- delay the switching by 1 step, otherwise could
       -- make the transition from Susceptible to Recovered within time-step
@@ -311,8 +311,8 @@ susceptibleAgent _coord
       if not $ isEvent makeContact
         then returnA -< (Susceptible, NoEvent)
         else (do
-          --let ns = neighbours env coord agentGridSize moore
-          let ns = allNeighbours env
+          let ns = neighbours env coord agentGridSize moore
+          -- let ns = allNeighbours env
           s <- drawRandomElemS -< ns
           case s of
             Infected -> do
