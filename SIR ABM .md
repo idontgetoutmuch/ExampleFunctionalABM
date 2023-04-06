@@ -1,10 +1,31 @@
-# Agent based SIR modelling in Haskell
+# Agent based SIR modelling
+
+In 1978, anonymous authors sent a note to the British Medical Journal reporting an influenza outbreak in a boarding school in the north of England ([1]). The chart below shows the solution of the SIR (Susceptible, Infected, Record) model with parameters which give roughly the results observed in the school.
+
+![Screen%20Shot%202023-04-03%20at%206.28.28%20pm.png](attachment:Screen%20Shot%202023-04-03%20at%206.28.28%20pm.png)
+
+[2] give a simple model of the spread of an infectious disease using ordinary differential equations (ODE). Individuals move from being susceptible (S) to infected (I) to recovered (R).
+
+An alternative to modelling via differential equations is to use an agent-based model (ABM). An ABM is a computational model which uses a bottom-up approach to simulate the actions and interactions of the system’s constituent units (agents) to capture the global system behaviour. Modelling via ABMs has become popularised as a result of computational and information processing advancements in technology, mathematics, game theory, and physics that occurred during the twentieth century, including Von Neumann’s cellular automata, Conway’s Game of Life, and Holland’s genetic algorithms [1].
+
+[1] Melissa Tracy, Magdalena Cerda and Katherine Keyes. Agent-Based Modeling in Public Health: Current Applications and Future Directions. Annual Review of Public Health, 39:77–94, January 2018.
+
+## What is ABM?
+
+In agent based modelling, the autonomous agents are assigned characteristics (e.g.age) and governing rules which determine their interaction with other agents and the environment. These interactions can result in emergence of complex behavior patterns and provide valuable information about the dynamics of the real-world system being emulated [2]. 
+
+
+The main advantages of ABM are:
+- Their stochastic nature which may result in unanticipated system dynamics or behaviours unlike those of the deterministic ODE models. 
+- Their ability to model experiments that may not be possible to conduct in the real world due to limitations such as cost.
+- Their flexibility in the scale of the model [2].
 
 
 
-An agent-based model (ABM) is a computational model which uses a bottom-up approach to simulate the actions and interactions of the system's constituent units (agents) to capture the global system behaviour. The autonomous agents are assigned characteristics (e.g. age) and follow various rules to ensure viable system dynamics. Spatiality can also be added to simulations.
+[2] Bonabeau Eric. Agent-based modelling: Methods and techniques for simulating human systems. Proceedings of the National Academy of Sciences, 99: 7280-7287, May 2002.
 
-Traditionally, ABM simulations are implemented as object-oriented programs due to the intuitive mapping of objects to agents. However, Functional Reactive Programming can also be used as it can guarantee the reproducibility of the simulation at compile time and avoid specific run-time bugs - which cannot be achieved in traditional object-oriented languages such as C#. 
+
+Traditionally, ABM simulations are implemented as object-oriented programs due to the intuitive mapping of objects to agents. However, Functional Reactive Programming (FRP) can also be used as it can guarantee the reproducibility of the simulation at compile time and avoid specific run-time bugs - which cannot be achieved in traditional object-oriented languages such as C#. 
 
 ## What is Functional Reactive Programming?
 
@@ -13,7 +34,7 @@ successfully applied in many domains, such as robotics or user interfacing.
 
 The central abstraction in FRP is a signal - which is a value that varies overtime. These signals can be composed directly or by composing signal functions. FRP libaries generally use arrows to implement functionality rather than monads due to greater efficiency and modularity. Arrows are a superset of monads, hence have very similar uses but are more restrictive (see [here](https://pdf.sciencedirectassets.com/272990/1-s2.0-S1571066106X02438/1-s2.0-S1571066106001666/main.pdf?X-Amz-Security-Token=IQoJb3JpZ2luX2VjEJ7%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLWVhc3QtMSJGMEQCIFDg9QZeU9kXNykNtK1Y3q77oHuug09p5ti63It1vccTAiBFKp5vMEkDr9v8O6lU%2FGJEBt1WPAktubolt%2FM7Ft0eRyqzBQhXEAUaDDA1OTAwMzU0Njg2NSIMm1WFiIp%2BgTN43MxSKpAF4WtU%2BhIjuCHa7o1OJ%2FJ5MHrwqLRo%2BnhAJ7pK%2BeBHF6xEGRXFSUKaELPIEgO6CAoqLitoqxUvWasKIWiBouge9w%2FZhcoQKARlX6lw6dYnQktYC%2BzakAwobpJa1s2LEWugYNdL9j2bfEZZJ3AtIqbUlwtvbBhqAEyKxkEQHlolc9cHyaq17Vv6%2FgfPDeE%2BqM6cM5I025Q4nQcAK4cQMzb66%2BxiIVpcAGVR8gSprc7GfKIpQlVO17l7aPJ33%2FDrrNMG28QydoXVKseJN2bkGk6%2BnjlP0TItMeFC5r%2FEtx%2BpgYTS%2BpnS%2FPxWeCDUMq4HfTNB9qVMipypeP98oeGMR92%2BNjp2uhF9X2a%2BHJbdOOQVV3IxKsT5JjSJ%2FzJhp6ieJ%2BPM7%2BCSIsCQ7Udf%2FaDo0KeX6KsGtCNFh0zJFwNyel6sx1b5yPXG8t7rgC2KAGV1kaYpggNZKMoGHFDt0HUOQCIan0hiP9vW8GvX0HjI1%2FH3Kajx0qVKnbky%2FbNfGmj9gMCJBfxYpRNvO0as%2FtWBngW7QQHIQR2opY400yJxE%2BdVFCgfCDaYBuDl1sckh7O%2FbDKT%2FQtEHmRlUdYkg8BIHYsqC%2FE3nt5Sqo83JGpaL7%2F0R0TyioO8EazXMwWVDK%2B%2Fbn4AhmoxIEPuAhw%2FgkfAUtn9o7a3iZF%2BHT%2Fv6gGxKLJkI40OzkM3nTlHmd93Yceamm%2Bj%2BHUcMzkqyUxyVUGQLEuTFWJ8DrFGsLqE%2F0h9A4y1sGV48%2BYXiiRipqitUyx7fW%2F1JRuY8sPsJmLc4CnIihYXIhIhzm06xqmouOaOEuSlAFvnAuvy6f09mD8VCC8H2E%2BtqkmUciVlg4fVM3mMRHdePbtNJ8HxyaN6143%2BMD8GVVkwzdqloAY6sgFkA1yE%2BQykIX6iO2s8d%2Bsr4dc1A4L23Kw4TymTEusts%2BVxCXWhF2CU23C3MxIddMHinkuiv8u6J6tcehBM05NTGXotQgTLeL4IASQ6%2BNdj6YWRjHZ5A77E8qBMap%2FWzGzpDXLAJ4hDZWktDQ4KMpW446reCDlw0ViRPJTzaSPsCcuElkjGI34WpARqHLN149%2FSs%2FcIFWBqwhG0%2F93p3zgWt5gkv9u5lbg6ZOYZ1Bjgzm9z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20230309T062929Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Credential=ASIAQ3PHCVTY3TG3MPND%2F20230309%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=ae795e67238960dc7bcdc97d21a32e3c73d229d94f6ccf87eecdd2eb4cb17ccb&hash=6109688cb98c98a108b74ea3b2556b59fcada4fd8ea4d0942973369e63ce2e0e&host=68042c943591013ac2b2430a89b270f6af2c76d8dfd086a07176afe7c76c2c61&pii=S1571066106001666&tid=spdf-0f923ac0-927a-479a-84e6-8376df53a474&sid=749e13d39ace604f5e2bba26f52d6131b5ccgxrqa&type=client&tsoh=d3d3LnNjaWVuY2VkaXJlY3QuY29t&ua=04125300565756535e54&rr=7a514386fa4faafb&cc=au) for more on arrows vs monads).
 
-The central concept of arrowised FRP is the Signal Function (SF). The SF represents a process overtime which maps an input signal to an output signal. Thus, signifying that SFs have an awareness of the passing of time through the timestep of the system. This concept of using time-varying functions as a method of handling agent-based models is essential due to their time-dependent nature (see more [here](https://www.cs.yale.edu/publications/techreports/tr1049.pdf)).
+The central concept of arrowised FRP is the Signal Function (SF) which are functions that have awareness of the passing of time through the timestep of the system. This concept of using time-varying functions as a method of handling agent-based models is essential due to their time-dependent nature (see more [here](https://www.cs.yale.edu/publications/techreports/tr1049.pdf)).
 
 
 Futher reading on FRP concepts https://ivanperez.io/papers/2016-HaskellSymposium-Perez-Barenz-Nilsson-FRPRefactored-short.pdf
@@ -91,7 +112,9 @@ data SIRState = Susceptible | Infected | Recovered deriving (Show, Eq)
 ```
 
 #### Define 2D environment
-In this model, a N x A grid is used to define the spatial aspect of the model. Here, the discrete 2D environment is defined with a tuple.
+In this model, a N x A grid is used to define the spatial aspect of the model. Here, the discrete 2D environment is simply defined with a tuple.
+
+If this spatial model was described using differential equations, then partial differential equations would be required to model the time dimension and the two space (x and y) dimensions. Such differential equations are amenable to numerical methods, however the additional complexity caused by increasing dimensionality is more easily modelled via ABM. 
 
 
 ```haskell
@@ -99,7 +122,7 @@ type Disc2dCoord  = (Int, Int)
 ```
 
 #### Define types to store agent's environment
-During the simulation, the location and state of each agent must be retrievable. Hence, the type `SIREnv` is defined to allow agents to store their location coordinate and their state in an array.
+In this model, all posiitions of the grid contain an agent and this agent is either susceptible, infected or recovered at all times. This information must be retrievable during simulation, hence the type `SIREnv` is defined to allow agents to store their location coordinate and their state in an array.
 
 
 ```haskell
@@ -130,7 +153,7 @@ type SimSF g = SF (SIRMonad g) () SIREnv
 ```
 
 #### Defining simulation context
-A simulation context data struct which contains the various parameters (e.g. simulation time) is defined in terms of their type. The ! is used to specific it is a strictness declaration.
+A simulation context data struct which contains the various parameters (e.g. simulation time) is defined in terms of their type. The ! is used to specific it is a strictness declaration and to avoid space leaks.
 
 
 ```haskell
@@ -167,7 +190,7 @@ contactRate = 5.0
 
 -- Infection rate or γ
 infectivity :: Double
-infectivity = 0.05
+infectivity = 0.025
 
 -- Recovery rate or δ
 illnessDuration :: Double
@@ -539,6 +562,58 @@ Unlike the other states, the recovered state does not generate any event and rat
 recoveredAgent :: RandomGen g => SIRAgent g
 recoveredAgent = arr (const Recovered) 
 ```
+
+# Arrowised FRP
+
+An Arrow is a generalisation of a monad which represents a process that takes as input a value of type b and outputs a value of type c.
+
+![Screen%20Shot%202023-04-06%20at%208.48.22%20pm.png](attachment:Screen%20Shot%202023-04-06%20at%208.48.22%20pm.png)
+
+Arrows are used in FRP as they represent processes - which naturally maps to the definition of signal functions (a process overtime) in FRP. Arrowised programming can be achieved via many different arrows combinators, but in this case to allow for programming in a point-free style and greater code readability, the `proc` keyword along with Paterson's `do` notation is used. 
+
+As an example of arrowised programming via this notation, consider the following code which implements a simple SF that calculates the acceleration of a falling mass given its initial position and velocity:
+
+
+```haskell
+fallingMass :: Double -> Double -> SF () Double
+fallingMass p0 v0 = proc _ -> do
+    v <- arr (+v0) <<< integral -< (-9.8)
+    p <- arr (+p0) <<< integral -< v
+returnA -< p
+```
+
+The `proc` keyword introduces the arrow notation, and it binds the arrow input to a pattern - the `do` in this case. The integral function - which is a SF - intakes variables and integrates them overtime to determine the current velocity and position. The <<< is a arrow computation combinator,  -< is used to pass an input to an arrow, and <- to bind the result of an arrow computation to a variable. Finally to return a value from an arrow, returnA is used. Overall, the combination of these allows for a more readable arrowised FRP approach. 
+
+To further illustrate the difference in code readability, consider the following example with and without the proc notation:
+
+
+
+```haskell
+-- computation with proc
+proc x -> do
+        y <- f -< x+1
+        g -< 2*y
+        let z = x+y
+        t <- h -< x*z
+        returnA -< t+z
+        
+-- equivalent computation but without proc
+arr (\ x -> (x+1, x)) >>>
+        first f >>>
+        arr (\ (y, x) -> (2*y, (x, y))) >>>
+        first g >>>
+        arr (\ (_, (x, y)) -> let z = x+y in (x*z, z)) >>>
+        first h >>>
+        arr (\ (t, z) -> t+z)
+```
+
+Futher resources for Arrows:
+
+- https://en.wikibooks.org/wiki/Haskell/Understanding_arrows
+- https://wiki.haskell.org/Arrow
+- https://www.cs.yale.edu/homes/hudak-paul/CS429F04/AFPLectureNotes.pdf
+
+The above notation is used in the following infectedAgent and susceptibleAgent functions.
 
 The function below describes the behaviour of an infected agent. This behaviour is governed by either recovering on average after delta time units or staying infected within a timestep.
 
@@ -935,6 +1010,22 @@ font-weight: bold;
 Chart to be finalised. Further details on the results to be added after this.
 
 
+
+
+```haskell
+import Plots.Axis
+import Control.Lens ((&~), (.=))
+import Plots.Axis.Scale
+import Plots.Axis.Title
+import Plots.Axis.Labels
+import Plots.Types
+import Diagrams.TwoD.Text
+import Diagrams.Core.Measure
+```
+
+`getResults`, `decodeCSV` and `addToList` are helper functions used to initally decode the SIR values stored in the CSV file created above, and convert them into List format such that they can be used for plotting
+
+
 ```haskell
 decodeCSV :: BL.ByteString -> Either String (V.Vector (Int, Int, Int))
 decodeCSV  = decode NoHeader  
@@ -953,7 +1044,12 @@ getResults = do
 
 addToList :: V.Vector (Int, Int, Int) -> ([Int], [Int], [Int])
 addToList v = unzip3 (V.toList v)
+```
 
+`scatterAxis2` is related to using the Plots functionality to create a scatter plot which depicts the resulting SIR Trajectory
+
+
+```haskell
 (d,e,f) <- getResults
 
 scatterAxis2 :: Axis B V2 Double
@@ -961,6 +1057,16 @@ scatterAxis2 = r2Axis &~ do
     scatterPlot (map (\(x,y) -> (fromIntegral x, fromIntegral y)) d) $ key "S"
     scatterPlot (map (\(x,y) -> (fromIntegral x, fromIntegral y)) e) $ key "I"
     scatterPlot (map (\(x,y) -> (fromIntegral x, fromIntegral y)) f) $ key "R"
+    Plots.Axis.xLabel Control.Lens..= "time step"
+    Plots.Axis.yLabel Control.Lens..= "No. people infected"
+    scaleMode Control.Lens..= Stretch
+    renderSize Control.Lens..= Just 500
+    titleText Control.Lens..= "Resulting SIR Trajectory"
+    tickLabelGap Control.Lens..= 10
+    --tickLabelStyle Control.Lens..= fontSize (output 11)
+
+
+    
 --
 scatterExample2 = renderAxis scatterAxis2
 diagram scatterExample2
@@ -968,10 +1074,15 @@ diagram scatterExample2
 
 
     
-![svg](output_82_0.svg)
+![svg](output_101_0.svg)
     
 
 
 The GIF below shows the spread of infection overtime
 
 ![SegmentLocal](SIR.gif "segment")
+
+
+```haskell
+
+```
